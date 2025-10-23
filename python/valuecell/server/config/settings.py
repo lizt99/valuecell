@@ -42,7 +42,12 @@ class Settings:
         self.CORS_ORIGINS = cors_origins.split(",") if cors_origins != "*" else ["*"]
 
         # Database Configuration
-        self.DATABASE_URL = os.getenv("VALUECELL_SQLITE_DB", _default_db_path())
+        db_config = os.getenv("VALUECELL_SQLITE_DB", _default_db_path())
+        # If it's a file path (not a URI), convert to SQLite URI
+        if db_config and not db_config.startswith("sqlite://"):
+            self.DATABASE_URL = f"sqlite:///{db_config}"
+        else:
+            self.DATABASE_URL = db_config
 
         # File Paths
         self.BASE_DIR = Path(__file__).parent.parent.parent
