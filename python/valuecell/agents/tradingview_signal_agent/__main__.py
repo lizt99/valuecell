@@ -13,8 +13,16 @@ from valuecell.core.agent.decorator import _serve
 from .logging_config import setup_logging, get_logger
 
 # Setup logging
+# Check for LOG_DIR environment variable (set by launch.py)
+# Otherwise use default logs directory
+default_logs_dir = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))),
+    "logs"
+)
+log_dir = os.getenv("VALUECELL_LOG_DIR", default_logs_dir)
+
 log_path = setup_logging(
-    log_dir=os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))), "logs"),
+    log_dir=log_dir,
     log_level=logging.INFO
 )
 
