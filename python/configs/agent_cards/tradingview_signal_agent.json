@@ -1,0 +1,181 @@
+{
+  "name": "TradingViewSignalAgent",
+  "display_name": "TradingView Signal Agent with Position Management",
+  "url": "http://localhost:10005",
+  "description": "Advanced trading agent combining TradingView technical indicators (MACD, RSI, Chart Prime) with intelligent position management, risk control, and COT-style AI reasoning for cryptocurrency trading",
+  "capabilities": {
+    "streaming": true,
+    "push_notifications": true,
+    "webhook_receiver": true,
+    "position_management": true,
+    "paper_trading": true
+  },
+  "skills": [
+    {
+      "id": "setup_trading_session",
+      "name": "Setup Trading Session",
+      "description": "Initialize a trading session with capital allocation and risk parameters for paper trading simulation",
+      "examples": [
+        "Setup trading with $100,000 for BTCUSDT and ETHUSDT",
+        "Create trading session with $50,000 capital",
+        "Initialize trading for BTC, ETH, and SOL"
+      ],
+      "tags": [
+        "setup",
+        "configuration",
+        "initialization"
+      ]
+    },
+    {
+      "id": "analyze_tradingview_signals",
+      "name": "Analyze TradingView Signals",
+      "description": "Analyze real-time technical indicators from TradingView webhooks and generate position-aware trading recommendations",
+      "examples": [
+        "Analyze BTCUSDT signals",
+        "What's the current recommendation for ETHUSDT?",
+        "Analyze BTC and show technical indicators"
+      ],
+      "tags": [
+        "analysis",
+        "signals",
+        "recommendations"
+      ]
+    },
+    {
+      "id": "portfolio_management",
+      "name": "Portfolio Management",
+      "description": "Track positions, calculate real-time P&L, monitor risk exposure, and manage portfolio state",
+      "examples": [
+        "Show my portfolio status",
+        "What's my current P&L?",
+        "Display open positions"
+      ],
+      "tags": [
+        "portfolio",
+        "positions",
+        "pnl"
+      ]
+    },
+    {
+      "id": "position_control",
+      "name": "Position Control",
+      "description": "Manually close positions or execute recommended trades",
+      "examples": [
+        "Close BTCUSDT position",
+        "Exit my ETH position",
+        "Close all positions"
+      ],
+      "tags": [
+        "trading",
+        "execution",
+        "control"
+      ]
+    },
+    {
+      "id": "performance_analytics",
+      "name": "Performance Analytics",
+      "description": "View comprehensive trading statistics including win rate, profit factor, and trade history",
+      "examples": [
+        "Show my performance",
+        "What's my win rate?",
+        "Display trading statistics"
+      ],
+      "tags": [
+        "analytics",
+        "statistics",
+        "performance"
+      ]
+    }
+  ],
+  "enabled": true,
+  "provider": {
+    "organization": "ValueCell",
+    "url": "https://github.com/valuecell"
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "author": "ValueCell Team",
+    "tags": [
+      "tradingview",
+      "signals",
+      "crypto",
+      "technical-analysis",
+      "position-management",
+      "ai-powered",
+      "cot-reasoning"
+    ],
+    "supported_symbols": [
+      "BTCUSDT",
+      "ETHUSDT",
+      "BNBUSDT",
+      "SOLUSDT",
+      "XRPUSDT",
+      "ADAUSDT",
+      "DOGEUSDT",
+      "MATICUSDT"
+    ],
+    "indicator_sources": [
+      "TradingView Webhook (15-minute intervals)",
+      "MACD (12/26/9)",
+      "RSI (14)",
+      "Chart Prime Suite",
+      "EMA (20/50/200)"
+    ],
+    "decision_models": [
+      "anthropic/claude-sonnet-4.5",
+      "openai/gpt-5",
+      "deepseek/deepseek-v3.1-terminus"
+    ],
+    "features": [
+      "Real-time TradingView indicator analysis",
+      "Multi-indicator confluence detection",
+      "Chain-of-Thought (COT) AI reasoning",
+      "Intelligent position management",
+      "Risk-based position sizing",
+      "Dynamic stop-loss and take-profit",
+      "Invalidation condition monitoring",
+      "Leverage management (5-40x)",
+      "Portfolio heat tracking",
+      "Paper trading simulation",
+      "Real-time P&L calculation",
+      "Performance analytics",
+      "Trade history tracking",
+      "Multi-timeframe analysis"
+    ],
+    "trading_modes": [
+      "paper",
+      "advisory"
+    ],
+    "webhook_config": {
+      "endpoint": "/api/webhook/tradingview",
+      "frequency": "15 minutes",
+      "required_indicators": [
+        "price",
+        "macd",
+        "rsi"
+      ],
+      "optional_indicators": [
+        "chart_prime",
+        "ema_20",
+        "ema_50",
+        "funding_rate"
+      ]
+    },
+    "risk_parameters": {
+      "default_risk_per_trade": 0.02,
+      "max_position_size": 0.20,
+      "max_concurrent_positions": 5,
+      "max_total_exposure": 0.60,
+      "default_leverage": 10,
+      "max_leverage": 40
+    },
+    "supported_operations": [
+      "OPEN",
+      "ADD",
+      "REDUCE",
+      "CLOSE",
+      "HOLD"
+    ]
+  }
+}
+
