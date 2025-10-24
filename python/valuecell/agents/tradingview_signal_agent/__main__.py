@@ -24,15 +24,13 @@ logger = get_logger('main')
 # Load agent card
 def load_agent_card():
     """Load agent card from JSON file"""
-    import json
-    from pathlib import Path
+    from valuecell.core.agent.card import find_local_agent_card_by_agent_name
     
-    config_path = Path(__file__).parent.parent.parent.parent / "configs" / "agent_cards" / "tradingview_signal_agent.json"
+    agent_card = find_local_agent_card_by_agent_name("TradingViewSignalAgent")
+    if agent_card is None:
+        raise RuntimeError("Failed to load TradingViewSignalAgent card. Check that the agent card file exists and is enabled.")
     
-    with open(config_path, 'r') as f:
-        card_data = json.load(f)
-    
-    return AgentCard(**card_data)
+    return agent_card
 
 
 # Serve the agent
