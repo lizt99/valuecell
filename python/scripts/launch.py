@@ -31,10 +31,12 @@ MAP_NAME_ANALYST: Dict[str, str] = {
 TRADING_AGENTS_NAME = "TradingAgents"
 RESEARCH_AGENT_NAME = "ResearchAgent"
 AUTO_TRADING_AGENT_NAME = "AutoTradingAgent"
+TRADINGVIEW_SIGNAL_AGENT_NAME = "TradingViewSignalAgent"
 AGENTS = list(MAP_NAME_ANALYST.keys()) + [
     TRADING_AGENTS_NAME,
     RESEARCH_AGENT_NAME,
     AUTO_TRADING_AGENT_NAME,
+    TRADINGVIEW_SIGNAL_AGENT_NAME,
 ]
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent.parent
@@ -61,6 +63,9 @@ MAP_NAME_COMMAND[RESEARCH_AGENT_NAME] = (
 )
 MAP_NAME_COMMAND[AUTO_TRADING_AGENT_NAME] = (
     f"uv run --env-file {ENV_PATH_STR} -m valuecell.agents.auto_trading_agent"
+)
+MAP_NAME_COMMAND[TRADINGVIEW_SIGNAL_AGENT_NAME] = (
+    f"uv run --env-file {ENV_PATH_STR} -m valuecell.agents.tradingview_signal_agent"
 )
 BACKEND_COMMAND = (
     f"cd {PYTHON_DIR_STR} && uv run --env-file {ENV_PATH_STR} -m valuecell.server.main"
@@ -106,9 +111,13 @@ def main():
         logfile = open(logfile_path, "w")
         logfiles.append(logfile)
 
+        # Set up environment with log directory for agents that need it
+        env = os.environ.copy()
+        env["VALUECELL_LOG_DIR"] = log_dir
+
         # Launch command using Popen with output redirected to logfile
         process = subprocess.Popen(
-            MAP_NAME_COMMAND[selected_agent], shell=True, stdout=logfile, stderr=logfile
+            MAP_NAME_COMMAND[selected_agent], shell=True, stdout=logfile, stderr=logfile, env=env
         )
         processes.append(process)
     print("All agents launched. Waiting for tasks...")
