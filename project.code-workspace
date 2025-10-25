@@ -9,5 +9,22 @@
     {
       "path": "python",
     }
-  ]
+  ],
+  "settings": {
+    "sqltools.connections": [
+      {
+        "previewLimit": 50,
+        "driver": "SQLite",
+        "name": "tradingview_indicators",
+        "database": "tradingview_indicators.db"
+      },
+      {
+        "previewLimit": 50,
+        "driver": "SQLite",
+        "database": "${workspaceFolder:python}/tradingview_signal_agent.db",
+        "name": "tradingview_signal_agent"
+      }
+    ],
+    "sqltools.useNodeRuntime": true
+  }
 }
