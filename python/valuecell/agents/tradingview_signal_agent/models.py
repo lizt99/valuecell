@@ -114,41 +114,119 @@ class ChartPrimeIndicators(BaseModel):
     custom_signals: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
-# ==================== Webhook Payload ====================
+# ==================== Data Source Payload ====================
 
-class TradingViewWebhookPayload(BaseModel):
-    """TradingView webhook data structure"""
+class SvixIndicatorData(BaseModel):
+    """
+    Indicator data from Svix API polling
+    
+    ONLY includes fields that API actually returns:
+    {
+        "symbol": "BTCUSDT",
+        "time": 1761504480000,
+        "timeframe_base": "1",
+        "layout_name": "rst-BTC-1m-rule",
+        "price": 113727.02,
+        "mid_price": 113719.57,
+        "volume": 2.73071,
+        "avg_volume": 7.1376495,
+        "ema20": 113668.69,
+        "ema50": 113616.15,
+        "rsi7": 63.07,
+        "rsi14": 62.95,
+        "atr3": 34.60,
+        "atr14": 29.58,
+        "macd": 39.93,
+        "macd_signal": 42.68,
+        "macd_hist": -2.75
+    }
+    """
+    # Identification
     symbol: str
-    timestamp: datetime
-    timeframe: str = "15m"
+    timestamp: datetime  # Converted from 'time' (Unix ms)
+    timeframe: str = "1m"  # Derived from timeframe_base
     
-    # Price data
+    # Price data (from API)
     price: float
-    open: float
-    high: float
-    low: float
-    close: float
+    mid_price: Optional[float] = None
     volume: float
+    avg_volume: Optional[float] = None
     
-    # Technical indicators
-    macd: MACDIndicator
-    rsi: RSIIndicator
-    chart_prime: Optional[ChartPrimeIndicators] = None
+    # MACD indicators (from API)
+    macd_line: float  # API field: "macd"
+    macd_signal: float  # API field: "macd_signal"
+    macd_histogram: float  # API field: "macd_hist"
     
-    # Optional indicators
-    ema_9: Optional[float] = None
-    ema_20: Optional[float] = None
-    ema_21: Optional[float] = None
-    ema_50: Optional[float] = None
-    ema_200: Optional[float] = None
+    # RSI indicators (from API)
+    rsi7: Optional[float] = None
+    rsi14: Optional[float] = None
     
-    bollinger_upper: Optional[float] = None
-    bollinger_middle: Optional[float] = None
-    bollinger_lower: Optional[float] = None
+    # Moving averages (from API)
+    ema_20: Optional[float] = None  # API field: "ema20"
+    ema_50: Optional[float] = None  # API field: "ema50"
+    
+    # ATR indicators (from API)
+    atr3: Optional[float] = None
+    atr14: Optional[float] = None
     
     # Metadata
-    strategy_name: Optional[str] = None
-    alert_message: Optional[str] = None
+    source: str = "svix"
+    layout_name: Optional[str] = None
+    timeframe_base: Optional[str] = None
+    raw_data: Optional[Dict[str, Any]] = None
+    
+    @classmethod
+    def from_api_response(cls, data: Dict[str, Any]) -> "SvixIndicatorData":
+        """
+        Create SvixIndicatorData from Svix API response
+        
+        Only extracts fields that API actually provides.
+        
+        Args:
+            data: Raw API response dictionary
+            
+        Returns:
+            SvixIndicatorData instance
+        """
+        # Parse timestamp: Unix milliseconds → datetime
+        time_ms = data.get("time", 0)
+        if time_ms:
+            timestamp = datetime.fromtimestamp(time_ms / 1000.0, tz=timezone.utc)
+        else:
+            timestamp = datetime.now(timezone.utc)
+        
+        # Parse timeframe: "1" → "1m"
+        timeframe_base = data.get("timeframe_base", "1")
+        timeframe = f"{timeframe_base}m"
+        
+        return cls(
+            # Identification
+            symbol=data.get("symbol", ""),
+            timestamp=timestamp,
+            timeframe=timeframe,
+            # Price data
+            price=float(data.get("price", 0.0)),
+            mid_price=data.get("mid_price"),
+            volume=float(data.get("volume", 0.0)),
+            avg_volume=data.get("avg_volume"),
+            # MACD (API: macd, macd_signal, macd_hist)
+            macd_line=float(data.get("macd", 0.0)),
+            macd_signal=float(data.get("macd_signal", 0.0)),
+            macd_histogram=float(data.get("macd_hist", 0.0)),
+            # RSI
+            rsi7=data.get("rsi7"),
+            rsi14=data.get("rsi14"),
+            # EMAs (API: ema20, ema50)
+            ema_20=data.get("ema20"),
+            ema_50=data.get("ema50"),
+            # ATR
+            atr3=data.get("atr3"),
+            atr14=data.get("atr14"),
+            # Metadata
+            layout_name=data.get("layout_name"),
+            timeframe_base=timeframe_base,
+            raw_data=data
+        )
 
 
 class CryptoTechnicalIndicators(BaseModel):

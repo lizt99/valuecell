@@ -38,8 +38,8 @@ class TradingViewSignalAgent(BaseAgent):
     TradingView Signal Agent with comprehensive position management
     
     Features:
-    - Receives TradingView webhook data (15-minute intervals)
-    - Performs technical analysis on MACD, RSI, Chart Prime indicators
+    - Receives indicator data from Svix API polling (1-minute intervals)
+    - Performs technical analysis on MACD, RSI, EMA, ATR indicators
     - Manages positions with risk controls
     - Generates AI-powered trading recommendations using COT reasoning
     - Supports paper trading mode
@@ -184,17 +184,17 @@ class TradingViewSignalAgent(BaseAgent):
         
         # 1. Get latest indicator data
         yield streaming.message_chunk("📊 Fetching indicator data...\n")
-        latest_data = await self.indicator_store.get_latest_data(symbol, timeframe="15m")
+        latest_data = await self.indicator_store.get_latest_data(symbol, timeframe="1m")
         
         if not latest_data:
             yield streaming.message_chunk(
                 f"⚠️ No data available for {symbol}.\n"
-                "Please ensure TradingView webhooks are configured and sending data.\n"
+                "Please ensure Svix polling service is running and collecting data.\n"
             )
             return
         
         # Get historical data
-        historical_data = await self.indicator_store.get_recent_data(symbol, limit=100, timeframe="15m")
+        historical_data = await self.indicator_store.get_recent_data(symbol, limit=100, timeframe="1m")
         
         # 2. Get current position
         current_position = portfolio_manager.position_manager.get_position(symbol)
@@ -208,26 +208,9 @@ class TradingViewSignalAgent(BaseAgent):
         # 3. Technical analysis
         yield streaming.message_chunk("📈 Running technical analysis...\n")
         
-        # Convert to webhook format for analysis
-        from .models import MACDIndicator, RSIIndicator, TradingViewWebhookPayload
-        
-        webhook_data = TradingViewWebhookPayload(
-            symbol=symbol,
-            timestamp=latest_data.timestamp,
-            timeframe=latest_data.timeframe,
-            price=latest_data.ohlcv["close"],
-            open=latest_data.ohlcv["open"],
-            high=latest_data.ohlcv["high"],
-            low=latest_data.ohlcv["low"],
-            close=latest_data.ohlcv["close"],
-            volume=latest_data.ohlcv["volume"],
-            macd=MACDIndicator(**latest_data.indicators["macd"]),
-            rsi=RSIIndicator(**latest_data.indicators["rsi"]),
-            ema_20=latest_data.indicators.get("ema_20")
-        )
-        
+        # Use TimeSeriesIndicatorData directly for analysis
         technical_result = self.technical_analyzer.synthesize_technical_signals(
-            webhook_data,
+            latest_data,
             historical_data
         )
         

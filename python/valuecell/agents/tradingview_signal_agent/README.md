@@ -4,7 +4,7 @@ A comprehensive trading agent that combines TradingView technical indicators wit
 
 ## Features
 
-- 📊 **Real-time TradingView Integration**: Receives technical indicators via webhook every 15 minutes
+- 📊 **Real-time Indicator Integration**: Fetches technical indicators from Svix API via polling every 3 minutes
 - 🤖 **AI-Powered Analysis**: Uses Chain-of-Thought (COT) reasoning with Claude/GPT models
 - 💼 **Position Management**: Tracks holdings, calculates P&L, manages risk exposure
 - ⚖️ **Risk Control**: Automatic position sizing, stop-loss, and portfolio heat monitoring
@@ -81,47 +81,39 @@ Shows:
 Close BTCUSDT
 ```
 
-## TradingView Webhook Setup
+## Data Source Setup
 
-### Configure Alert in TradingView
+### Svix API Polling (Current Method)
 
-1. Create an alert on your chart
-2. Set webhook URL: `http://your-server:8001/api/webhook/tradingview`
-3. Configure alert to trigger every 15 minutes
-4. Set message format (JSON):
+The agent now fetches indicator data from Svix API via scheduled polling:
 
-```json
-{
-  "symbol": "{{ticker}}",
-  "timestamp": "{{time}}",
-  "timeframe": "15m",
-  "price": {{close}},
-  "open": {{open}},
-  "high": {{high}},
-  "low": {{low}},
-  "close": {{close}},
-  "volume": {{volume}},
-  "macd": {
-    "macd_line": {{macd}},
-    "signal_line": {{macd_signal}},
-    "histogram": {{macd_histogram}}
-  },
-  "rsi": {
-    "value": {{rsi}}
-  },
-  "ema_20": {{ema(20)}},
-  "ema_50": {{ema(50)}}
-}
+- **Polling Interval**: Every 3 minutes
+- **API Endpoint**: Svix Consumer API
+- **Data Format**: Indicator data for BTCUSDT on 1-minute timeframe
+
+**Required Environment Variables:**
+
+```bash
+export SVIX_API_TOKEN="your-svix-api-token"
+export SVIX_CONSUMER_ID="your-consumer-id"
 ```
+
+**Start Polling Service:**
+
+```bash
+./scripts/start_tradingview_polling.sh
+```
+
+For detailed setup instructions, see [POLLING_SERVICE_SETUP.md](POLLING_SERVICE_SETUP.md).
 
 ## Architecture
 
 ```
 ┌─────────────────┐
-│  TradingView    │
-│   (Webhooks)    │
+│   Svix API      │
+│  (Consumer API) │
 └────────┬────────┘
-         │ 15min intervals
+         │ Poll every 3min
          ▼
 ┌─────────────────────────────────┐
 │   Indicator Data Store          │
@@ -264,13 +256,13 @@ Track your trading performance:
 
 ### No Data Available
 
-- Ensure TradingView webhooks are configured
-- Check webhook endpoint is accessible
+- Ensure Svix polling service is running
+- Check API credentials are set correctly
 - Verify JSON format matches expected structure
 
 ### Positions Not Updating
 
-- Check if indicator data is being received every 15 minutes
+- Check if indicator data is being received every 3 minutes
 - Review logs for errors
 - Verify database is writable
 
@@ -292,7 +284,8 @@ export OPENROUTER_API_KEY="your-key"
 export TV_DECISION_MODEL="anthropic/claude-sonnet-4.5"
 
 # Optional: Webhook secret for security
-export TRADINGVIEW_WEBHOOK_SECRET="your-secret"
+# Webhook is deprecated - use Svix polling instead
+# See POLLING_SERVICE_SETUP.md for configuration
 ```
 
 ## Database

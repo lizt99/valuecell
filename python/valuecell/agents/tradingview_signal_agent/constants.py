@@ -103,10 +103,20 @@ DEFAULT_PARSER_MODEL = "anthropic/claude-sonnet-4.5"
 DEFAULT_DB_PATH = "tradingview_signal_agent.db"
 INDICATOR_DB_PATH = "tradingview_indicators.db"
 
-# ==================== Webhook Configuration ====================
+# ==================== Svix Polling Configuration ====================
 
-WEBHOOK_PORT = 8001
-WEBHOOK_SECRET_ENV = "TRADINGVIEW_WEBHOOK_SECRET"
+# Svix API configuration
+SVIX_API_URL = "https://api.us.svix.com/api/v1/app/app_34c45yl2FOypajxyz2UPrmsYl06/poller/poll_xo6"
+SVIX_API_TOKEN_ENV = "SVIX_API_TOKEN"
+SVIX_CONSUMER_ID_ENV = "SVIX_CONSUMER_ID"
+
+# Polling configuration
+POLLING_INTERVAL_MINUTES = 3  # Poll every 3 minutes
+POLLING_START_OFFSET_SECONDS = 0  # Start at :00 seconds
+
+# Data timeframe (API provides 1-minute data)
+DEFAULT_TIMEFRAME = "1m"  # API returns 1-minute candles
+PRIMARY_TIMEFRAME = "1m"  # Changed from 15m to match API data
 
 # ==================== Agent Server Configuration ====================
 

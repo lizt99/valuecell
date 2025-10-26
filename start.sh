@@ -11,6 +11,7 @@ PY_DIR="$SCRIPT_DIR/python"
 
 BACKEND_PID=""
 FRONTEND_PID=""
+POLLING_PID=""
 
 info()  { echo "[INFO]  $*"; }
 success(){ echo "[ OK ]  $*"; }
@@ -96,6 +97,55 @@ compile() {
   fi
 }
 
+start_polling_service() {
+  if [[ ! -d "$PY_DIR" ]]; then
+    warn "Backend directory not found; skipping polling service start"
+    return 0
+  fi
+  
+  info "Starting TradingView Polling Service..."
+  
+  # Load environment variables from .env file
+  local env_file="$SCRIPT_DIR/.env"
+  if [[ -f "$env_file" ]]; then
+    # Export Svix credentials
+    export $(grep -v '^#' "$env_file" | grep SVIX | xargs) 2>/dev/null || true
+  fi
+  
+  # Check if credentials are set
+  if [[ -z "${SVIX_API_TOKEN:-}" ]] || [[ -z "${SVIX_CONSUMER_ID:-}" ]]; then
+    warn "Svix API credentials not found in .env file"
+    warn "Polling service may not work correctly"
+    warn "Please set SVIX_API_TOKEN and SVIX_CONSUMER_ID in .env"
+  fi
+  
+  # Create logs directory
+  mkdir -p "$SCRIPT_DIR/logs"
+  
+  # Start polling service in background
+  (
+    cd "$PY_DIR" && \
+    nohup uv run --env-file "$env_file" \
+      -m valuecell.agents.tradingview_signal_agent.polling_service \
+      > "$SCRIPT_DIR/logs/polling_service.log" 2>&1 &
+    echo $! > "$SCRIPT_DIR/logs/polling_service.pid"
+  )
+  
+  # Read PID
+  sleep 1
+  if [[ -f "$SCRIPT_DIR/logs/polling_service.pid" ]]; then
+    POLLING_PID=$(cat "$SCRIPT_DIR/logs/polling_service.pid")
+    if kill -0 "$POLLING_PID" 2>/dev/null; then
+      success "Polling service started (PID: $POLLING_PID)"
+      info "  Logs: $SCRIPT_DIR/logs/polling_service.log"
+      info "  Polling interval: 3 minutes"
+    else
+      warn "Polling service failed to start (check logs/polling_service.log)"
+      POLLING_PID=""
+    fi
+  fi
+}
+
 start_backend() {
   if [[ ! -d "$PY_DIR" ]]; then
     warn "Backend directory not found; skipping backend start"
@@ -126,6 +176,18 @@ cleanup() {
   if [[ -n "$BACKEND_PID" ]] && kill -0 "$BACKEND_PID" 2>/dev/null; then
     kill "$BACKEND_PID" 2>/dev/null || true
   fi
+  if [[ -n "$POLLING_PID" ]] && kill -0 "$POLLING_PID" 2>/dev/null; then
+    info "Stopping polling service..."
+    kill "$POLLING_PID" 2>/dev/null || true
+  fi
+  # Also try to stop polling service by PID file
+  if [[ -f "$SCRIPT_DIR/logs/polling_service.pid" ]]; then
+    local pid=$(cat "$SCRIPT_DIR/logs/polling_service.pid")
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+    fi
+    rm -f "$SCRIPT_DIR/logs/polling_service.pid"
+  fi
   success "Stopped"
 }
 
@@ -138,22 +200,40 @@ Usage: ./start.sh [options]
 Description:
   - Checks whether bun and uv are installed; on macOS, missing tools will be auto-installed via Homebrew.
   - Then installs backend and frontend dependencies and starts services.
+  - Automatically starts TradingView Polling Service for data collection.
+
+Services Started:
+  - TradingView Polling Service (background, every 3 minutes)
+  - Frontend (bun dev server on port 1420)
+  - Backend (API server and agents)
 
 Options:
-  --no-frontend   Start backend only
-  --no-backend    Start frontend only
-  -h, --help      Show help
+  --no-frontend      Start backend only
+  --no-backend       Start frontend only
+  --no-polling       Skip polling service (not recommended)
+  -h, --help         Show help
+
+Environment Variables:
+  Required in .env file for polling service:
+    SVIX_API_TOKEN      - Svix API token for polling
+    SVIX_CONSUMER_ID    - Svix consumer ID
+
+Logs:
+  - Polling Service: logs/polling_service.log
+  - Backend/Agents: logs/<timestamp>/
 EOF
 }
 
 main() {
   local start_frontend_flag=1
   local start_backend_flag=1
+  local start_polling_flag=1
 
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --no-frontend) start_frontend_flag=0; shift ;;
       --no-backend)  start_backend_flag=0; shift ;;
+      --no-polling)  start_polling_flag=0; shift ;;
       -h|--help)     print_usage; exit 0 ;;
       *) error "Unknown argument: $1"; print_usage; exit 1 ;;
     esac
@@ -164,6 +244,11 @@ main() {
   ensure_tool uv uv
 
   compile
+
+  # Start polling service first (independent background service)
+  if (( start_polling_flag )); then
+    start_polling_service
+  fi
 
   if (( start_frontend_flag )); then
     start_frontend

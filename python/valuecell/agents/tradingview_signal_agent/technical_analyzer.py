@@ -11,7 +11,6 @@ from .models import (
     PositionSide,
     RSIIndicator,
     TimeSeriesIndicatorData,
-    TradingViewWebhookPayload,
 )
 
 logger = logging.getLogger(__name__)
@@ -178,7 +177,7 @@ class TradingViewTechnicalAnalyzer:
     
     @staticmethod
     def synthesize_technical_signals(
-        current_data: TradingViewWebhookPayload,
+        current_data: TimeSeriesIndicatorData,
         historical_data: List[TimeSeriesIndicatorData]
     ) -> Dict[str, Any]:
         """Synthesize all technical signals"""
@@ -196,33 +195,41 @@ class TradingViewTechnicalAnalyzer:
                 rsi_dict = data.indicators["rsi"]
                 historical_rsi.append(RSIIndicator(**rsi_dict))
         
+        # Extract current indicators from TimeSeriesIndicatorData
+        current_macd = MACDIndicator(**current_data.indicators["macd"])
+        current_rsi = RSIIndicator(**current_data.indicators["rsi"])
+        
         # Analyze each indicator
         macd_analysis = TradingViewTechnicalAnalyzer.analyze_macd(
-            current_data.macd, historical_macd
+            current_macd, historical_macd
         )
         rsi_analysis = TradingViewTechnicalAnalyzer.analyze_rsi(
-            current_data.rsi, historical_rsi
+            current_rsi, historical_rsi
         )
-        chart_prime_analysis = TradingViewTechnicalAnalyzer.analyze_chart_prime(
-            current_data.chart_prime
-        )
+        
+        # Chart Prime is not available in Svix API data
+        chart_prime_analysis = {
+            "signal": "neutral",
+            "signal_strength": 50,
+            "key_observations": []
+        }
         
         # Convert to CryptoTechnicalIndicators for EMA analysis
         crypto_indicators = CryptoTechnicalIndicators(
             symbol=current_data.symbol,
             timestamp=current_data.timestamp,
             timeframe=current_data.timeframe,
-            close_price=current_data.close,
-            open_price=current_data.open,
-            high_price=current_data.high,
-            low_price=current_data.low,
-            volume=current_data.volume,
-            ema_20=current_data.ema_20,
-            ema_50=current_data.ema_50,
-            rsi=current_data.rsi.value,
-            macd=current_data.macd.macd_line,
-            macd_signal=current_data.macd.signal_line,
-            macd_histogram=current_data.macd.histogram
+            close_price=current_data.ohlcv["close"],
+            open_price=current_data.ohlcv.get("open", current_data.ohlcv["close"]),
+            high_price=current_data.ohlcv.get("high", current_data.ohlcv["close"]),
+            low_price=current_data.ohlcv.get("low", current_data.ohlcv["close"]),
+            volume=current_data.ohlcv["volume"],
+            ema_20=current_data.indicators.get("ema_20"),
+            ema_50=current_data.indicators.get("ema_50"),
+            rsi=current_rsi.value,
+            macd=current_macd.macd_line,
+            macd_signal=current_macd.signal_line,
+            macd_histogram=current_macd.histogram
         )
         
         ema_analysis = TradingViewTechnicalAnalyzer.analyze_ema_alignment(crypto_indicators)
