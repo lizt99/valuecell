@@ -193,6 +193,20 @@ class TradingViewSignalAgent(BaseAgent):
             )
             return
         
+        # Check data freshness (should be within 5 minutes for 1m data)
+        from datetime import timedelta
+        data_age = datetime.now(timezone.utc) - latest_data.timestamp
+        if data_age > timedelta(minutes=5):
+            yield streaming.message_chunk(
+                f"⚠️ **Data Freshness Warning**: Latest data is {int(data_age.total_seconds() / 60)} minutes old.\n"
+                f"   Data timestamp: {latest_data.timestamp.strftime('%Y-%m-%d %H:%M:%S UTC')}\n"
+                f"   Expected refresh: Every 3 minutes\n\n"
+            )
+        else:
+            yield streaming.message_chunk(
+                f"✓ Data is fresh ({int(data_age.total_seconds())}s old)\n"
+            )
+        
         # Get historical data
         historical_data = await self.indicator_store.get_recent_data(symbol, limit=100, timeframe="1m")
         
@@ -205,14 +219,57 @@ class TradingViewSignalAgent(BaseAgent):
             f"💼 Position: {MessageFormatter.format_position_brief(current_position)}\n\n"
         )
         
-        # 3. Technical analysis
-        yield streaming.message_chunk("📈 Running technical analysis...\n")
+        # 3. Technical analysis (Enhanced with Phase 2 improvements)
+        yield streaming.message_chunk("📈 Running enhanced technical analysis...\n")
         
         # Use TimeSeriesIndicatorData directly for analysis
         technical_result = self.technical_analyzer.synthesize_technical_signals(
             latest_data,
             historical_data
         )
+        
+        # Display enhanced analysis results
+        yield streaming.message_chunk("\n**📊 Technical Analysis Summary:**\n")
+        yield streaming.message_chunk(f"- Signal Strength: {technical_result['signal_strength']:.1f}\n")
+        yield streaming.message_chunk(f"- Confidence: {technical_result['confidence']:.1%}\n")
+        yield streaming.message_chunk(f"- Trend: {technical_result['trend']}\n\n")
+        
+        # EMA Trend Analysis
+        if "ema_analysis" in technical_result and technical_result["ema_analysis"]:
+            ema = technical_result["ema_analysis"]
+            if "trend_direction" in ema:
+                yield streaming.message_chunk(
+                    f"**📐 EMA Trend:** {ema['trend_direction'].upper()} "
+                    f"(strength: {ema.get('trend_strength', 0):.1f})\n"
+                )
+                yield streaming.message_chunk(f"- Price position: {ema.get('price_position', 'unknown')}\n")
+        
+        # RSI Divergence Analysis
+        if "rsi_divergence_analysis" in technical_result and technical_result["rsi_divergence_analysis"]:
+            rsi_div = technical_result["rsi_divergence_analysis"]
+            if rsi_div.get("divergence_type") != "neutral":
+                yield streaming.message_chunk(
+                    f"**🎯 RSI Divergence:** {rsi_div['divergence_type'].upper()} "
+                    f"(RSI7: {latest_data.indicators.get('rsi7', 0):.1f}, RSI14: {latest_data.indicators.get('rsi14', 0):.1f})\n"
+                )
+        
+        # Volatility Context
+        if "volatility_analysis" in technical_result and technical_result["volatility_analysis"]:
+            vol = technical_result["volatility_analysis"]
+            yield streaming.message_chunk(
+                f"**📉 Volatility:** {vol['volatility_state'].replace('_', ' ').title()} "
+                f"(Risk: {vol['risk_level']})\n"
+            )
+            if "suggested_stop_distance" in vol and vol["suggested_stop_distance"]:
+                stops = vol["suggested_stop_distance"]
+                if "moderate" in stops:
+                    mod_stop = stops["moderate"]
+                    yield streaming.message_chunk(
+                        f"- Suggested stop (ATR-based): ${mod_stop.get('stop_price_long', 0):,.2f} "
+                        f"({mod_stop.get('risk_pct', 0):.2f}% risk)\n"
+                    )
+        
+        yield streaming.message_chunk("\n")
         
         # 4. Generate recommendation using COT engine
         yield streaming.message_chunk("🧠 Generating AI-powered recommendation...\n\n")

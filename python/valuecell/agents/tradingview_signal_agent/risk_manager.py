@@ -82,6 +82,197 @@ class RiskManager:
         else:
             return self.config.leverage_by_confidence["low"]
     
+    def calculate_atr_based_stop_loss(
+        self,
+        entry_price: float,
+        atr14: float,
+        atr3: float = None,
+        side: PositionSide = PositionSide.LONG,
+        risk_profile: str = "moderate"
+    ) -> Dict[str, float]:
+        """
+        Calculate dynamic stop loss based on ATR (Phase 2 Enhancement)
+        
+        Args:
+            entry_price: Entry price
+            atr14: 14-period ATR (long-term volatility)
+            atr3: 3-period ATR (short-term volatility, optional)
+            side: Position side (LONG or SHORT)
+            risk_profile: "conservative", "moderate", or "aggressive"
+            
+        Returns:
+            Dict with stop loss recommendations:
+            - stop_price: Recommended stop loss price
+            - stop_distance: Distance from entry
+            - atr_multiple: ATR multiple used
+            - risk_pct: Risk as % of entry price
+        """
+        # ATR multiples by risk profile
+        atr_multiples = {
+            "conservative": 2.5,
+            "moderate": 2.0,
+            "aggressive": 1.5
+        }
+        
+        atr_multiple = atr_multiples.get(risk_profile, 2.0)
+        
+        # Use short-term ATR for aggressive, long-term for conservative
+        if risk_profile == "aggressive" and atr3:
+            atr_value = atr3
+        else:
+            atr_value = atr14
+        
+        stop_distance = atr_value * atr_multiple
+        
+        # Calculate stop price based on side
+        if side == PositionSide.LONG:
+            stop_price = entry_price - stop_distance
+        else:  # SHORT
+            stop_price = entry_price + stop_distance
+        
+        risk_pct = (stop_distance / entry_price) * 100 if entry_price > 0 else 0
+        
+        return {
+            "stop_price": stop_price,
+            "stop_distance": stop_distance,
+            "atr_multiple": atr_multiple,
+            "atr_value": atr_value,
+            "risk_pct": risk_pct,
+            "risk_profile": risk_profile
+        }
+    
+    def adjust_position_size_for_volatility(
+        self,
+        base_position_size: float,
+        atr3: float,
+        atr14: float,
+        entry_price: float
+    ) -> Dict[str, float]:
+        """
+        Adjust position size based on current volatility (Phase 2 Enhancement)
+        
+        High volatility -> Reduce position size
+        Low volatility -> Can maintain or increase position size
+        
+        Args:
+            base_position_size: Base position size (quantity)
+            atr3: Short-term ATR
+            atr14: Long-term ATR
+            entry_price: Entry price
+            
+        Returns:
+            Dict with adjusted position size
+        """
+        if atr14 == 0:
+            return {
+                "adjusted_quantity": base_position_size,
+                "adjustment_factor": 1.0,
+                "volatility_state": "unknown"
+            }
+        
+        atr_ratio = atr3 / atr14
+        atr_pct = (atr14 / entry_price) * 100 if entry_price > 0 else 0
+        
+        # Determine adjustment factor
+        if atr_ratio > 1.3:
+            # Rapidly expanding volatility - reduce size significantly
+            adjustment_factor = 0.6
+            volatility_state = "rapidly_expanding"
+        elif atr_ratio > 1.1:
+            # Expanding volatility - reduce size moderately
+            adjustment_factor = 0.8
+            volatility_state = "expanding"
+        elif atr_ratio < 0.7:
+            # Contracting volatility - can increase size
+            adjustment_factor = 1.2
+            volatility_state = "contracting"
+        elif atr_ratio < 0.9:
+            # Slightly contracting - maintain or slightly increase
+            adjustment_factor = 1.1
+            volatility_state = "slightly_contracting"
+        else:
+            # Stable volatility
+            adjustment_factor = 1.0
+            volatility_state = "stable"
+        
+        # Additional adjustment for absolute volatility level
+        if atr_pct > 3.0:
+            # Very high volatility
+            adjustment_factor *= 0.8
+        elif atr_pct < 1.0:
+            # Very low volatility
+            adjustment_factor *= 1.1
+        
+        # Cap adjustment factor
+        adjustment_factor = max(0.3, min(1.5, adjustment_factor))
+        
+        adjusted_quantity = base_position_size * adjustment_factor
+        
+        return {
+            "adjusted_quantity": adjusted_quantity,
+            "adjustment_factor": adjustment_factor,
+            "volatility_state": volatility_state,
+            "atr_ratio": atr_ratio,
+            "atr_pct": atr_pct
+        }
+    
+    def get_volatility_adjusted_leverage(
+        self,
+        base_leverage: int,
+        atr3: float,
+        atr14: float,
+        entry_price: float
+    ) -> Dict[str, any]:
+        """
+        Adjust leverage based on current volatility (Phase 2 Enhancement)
+        
+        High volatility -> Lower leverage
+        Low volatility -> Can use higher leverage
+        
+        Args:
+            base_leverage: Base leverage from confidence level
+            atr3: Short-term ATR
+            atr14: Long-term ATR
+            entry_price: Entry price
+            
+        Returns:
+            Dict with adjusted leverage
+        """
+        if atr14 == 0:
+            return {
+                "adjusted_leverage": base_leverage,
+                "reason": "No ATR data available"
+            }
+        
+        atr_ratio = atr3 / atr14
+        atr_pct = (atr14 / entry_price) * 100 if entry_price > 0 else 0
+        
+        # Determine leverage adjustment
+        if atr_ratio > 1.3 or atr_pct > 3.0:
+            # High volatility - reduce leverage significantly
+            adjusted_leverage = max(5, int(base_leverage * 0.6))
+            reason = "High volatility detected - leverage reduced for safety"
+        elif atr_ratio > 1.1 or atr_pct > 2.0:
+            # Elevated volatility - reduce leverage moderately
+            adjusted_leverage = max(5, int(base_leverage * 0.8))
+            reason = "Elevated volatility - leverage reduced moderately"
+        elif atr_ratio < 0.7 and atr_pct < 1.5:
+            # Low volatility - can maintain or increase leverage
+            adjusted_leverage = min(40, int(base_leverage * 1.1))
+            reason = "Low volatility - leverage can be maintained or increased"
+        else:
+            # Normal volatility - maintain base leverage
+            adjusted_leverage = base_leverage
+            reason = "Normal volatility - base leverage maintained"
+        
+        return {
+            "adjusted_leverage": adjusted_leverage,
+            "base_leverage": base_leverage,
+            "atr_ratio": atr_ratio,
+            "atr_pct": atr_pct,
+            "reason": reason
+        }
+    
     def calculate_portfolio_heat(self, positions: List[Position]) -> float:
         """
         Calculate portfolio heat (total risk exposure)

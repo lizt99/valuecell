@@ -111,6 +111,13 @@ class COTDecisionEngine:
             
             indicators = context.current_indicators
             
+            # Get additional indicators from context if available
+            rsi7 = getattr(indicators, 'rsi7', None)
+            rsi14 = getattr(indicators, 'rsi14', indicators.rsi)
+            ema_50 = getattr(indicators, 'ema_50', None)
+            atr3 = getattr(indicators, 'atr3', None)
+            atr14 = getattr(indicators, 'atr14', None)
+            
             prompt += f"""
 - **{symbol}**:
   - Entry Price: ${pos.entry_price:.2f}
@@ -121,9 +128,11 @@ class COTDecisionEngine:
   - Profit Target: ${pos.profit_target:.2f}
   - Stop Loss: ${pos.stop_loss_price:.2f}
   - Invalidation Condition: {pos.invalidation_condition.description}
-  - RSI: {indicators.rsi:.2f}
-  - EMA20: {indicators.ema_20:.2f}
-  - MACD: {indicators.macd:.3f}
+  - **Technical Indicators (Enhanced Phase 2)**:
+    - RSI7: {rsi7:.2f if rsi7 else 'N/A'} | RSI14: {rsi14:.2f}
+    - EMA20: ${indicators.ema_20:.2f if indicators.ema_20 else 'N/A'} | EMA50: ${ema_50:.2f if ema_50 else 'N/A'}
+    - MACD: {indicators.macd:.3f} | Signal: {indicators.macd_signal:.3f}
+    - ATR3: {atr3:.2f if atr3 else 'N/A'} | ATR14: {atr14:.2f if atr14 else 'N/A'} (Volatility)
   - Funding Rate: {indicators.funding_rate:.6f if indicators.funding_rate else 'N/A'}
 """
         
@@ -154,14 +163,21 @@ For each position, decide whether to:
 1. First, review each existing position:
    - Is the invalidation condition triggered?
    - Is the current price near stop loss or profit target?
-   - What do the technical indicators (RSI, MACD, EMA20) suggest?
+   - **Enhanced Multi-Period Analysis (Phase 2)**:
+     * RSI Momentum: Compare RSI7 vs RSI14 for short-term momentum shifts
+     * EMA Trend: Check EMA20 vs EMA50 alignment and price position
+     * MACD: Analyze MACD line vs signal line for momentum
+     * Volatility: Check ATR3 vs ATR14 for volatility expansion/contraction
    - What is the funding rate telling us?
    - What is the current P&L?
 
 2. Then, consider new entries (only if you have available position slots and are not already in the coin):
    - Check if you have less than {config.max_concurrent_positions} positions
-   - Analyze technical indicators for symbols you're not in
-   - Assess confidence and calculate appropriate position size
+   - Analyze technical indicators for symbols you're not in:
+     * Multi-period RSI analysis (RSI7 vs RSI14 divergence)
+     * EMA trend alignment (price vs EMA20 vs EMA50)
+     * Volatility context (ATR3 vs ATR14 ratio) - adjust position size for high volatility
+   - Assess confidence and calculate appropriate position size (consider volatility)
 
 **Output Format:**
 Provide your detailed chain of thought reasoning first, then output JSON for each coin.
